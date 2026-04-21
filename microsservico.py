@@ -89,7 +89,7 @@ async def get_form():
                 <span class="tag-ia">✨ Powered by Gemini AI</span>
                 <p>Escolha a origem dos dados para gerar a sua apresentação:</p>
 
-                <form action="/gerar-pptx" method="post">
+                <form action="/gerar-pptx" method="post" onsubmit="document.getElementById('btn-gerar').innerText = 'Processando com IA... ⏳'; document.getElementById('btn-gerar').style.background = '#888';">
                     <label>Opção 1: Extrair direto do Código</label>
                     <input type="url" name="url_github" placeholder="Ex: https://github.com/usuario/repositorio">
 
@@ -98,7 +98,7 @@ async def get_form():
                     <label>Opção 2: Colar anotações manualmente</label>
                     <textarea name="texto_bruto" rows="5" placeholder="Cole aqui o resumo da reunião, notas da Sprint, etc..."></textarea>
 
-                    <button type="submit">Processar com IA e Gerar PPTX</button>
+                    <button type="submit" id="btn-gerar">Processar com IA e Gerar PPTX</button>
                 </form>
             </div>
         </body>
