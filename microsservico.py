@@ -60,8 +60,11 @@ def extrair_commits_do_github(url: str) -> str:
     return historico_texto
 
 
+from typing import Optional  # Adicione isso lá nas importações do topo!
+
+
 # ==========================================
-# 1. FRONT-END DO MVP (Atualizado)
+# 1. FRONT-END: INGESTÃO UNIFICADA
 # ==========================================
 @app.get("/", response_class=HTMLResponse)
 async def get_form():
@@ -70,23 +73,32 @@ async def get_form():
         <head>
             <title>Gerador de Apresentações com IA</title>
             <style>
-                body { font-family: Arial, sans-serif; padding: 50px; background-color: #f4f4f9; }
+                body { font-family: Arial, sans-serif; padding: 40px; background-color: #f4f4f9; }
                 .container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 600px; margin: auto; }
-                input[type=url] { width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-                button { padding: 10px 20px; background: #6200ea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; width: 100%; }
+                input[type=url], textarea { width: 100%; padding: 10px; margin-top: 5px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+                button { padding: 12px 20px; background: #6200ea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; width: 100%; }
                 button:hover { background: #3700b3; }
                 .tag-ia { display: inline-block; background: #e0f7fa; color: #00838f; padding: 4px 8px; border-radius: 12px; font-size: 12px; margin-bottom: 15px; font-weight: bold; }
-                .tag-git { display: inline-block; background: #eeeeee; color: #333; padding: 4px 8px; border-radius: 12px; font-size: 12px; margin-bottom: 15px; font-weight: bold; margin-right: 5px;}
+                hr { border: 0; border-top: 1px solid #eee; margin: 20px 0; }
+                label { font-weight: bold; color: #333; }
             </style>
         </head>
         <body>
             <div class="container">
                 <h2>Gerador de Sprint Review 🚀</h2>
-                <span class="tag-git">🐙 Integração GitHub</span><span class="tag-ia">✨ Powered by Gemini AI</span>
-                <p>Insira a URL de um repositório público. O sistema irá extrair os commits automaticamente, interpretar o código e gerar a apresentação.</p>
+                <span class="tag-ia">✨ Powered by Gemini AI</span>
+                <p>Escolha a origem dos dados para gerar a sua apresentação:</p>
+
                 <form action="/gerar-pptx" method="post">
-                    <input type="url" name="url_github" placeholder="Ex: https://github.com/ProfJuliani/EngSoft" required><br>
-                    <button type="submit">Extrair do GitHub e Gerar PPTX</button>
+                    <label>Opção 1: Extrair direto do Código</label>
+                    <input type="url" name="url_github" placeholder="Ex: https://github.com/usuario/repositorio">
+
+                    <hr>
+
+                    <label>Opção 2: Colar anotações manualmente</label>
+                    <textarea name="texto_bruto" rows="5" placeholder="Cole aqui o resumo da reunião, notas da Sprint, etc..."></textarea>
+
+                    <button type="submit">Processar com IA e Gerar PPTX</button>
                 </form>
             </div>
         </body>
@@ -95,31 +107,40 @@ async def get_form():
 
 
 # ==========================================
-# 2. BACK-END: INTEGRAÇÃO COMPLETA
+# 2. BACK-END: ROTEAMENTO INTELIGENTE
 # ==========================================
+# Note que agora usamos Optional[str] e Form(None) para não obrigar o usuário a preencher os dois
 @app.post("/gerar-pptx")
-async def gerar_pptx(url_github: str = Form(...)):
-    try:
-        # CHAMA A FUNÇÃO DO MEMBRO 1
-        texto_bruto = extrair_commits_do_github(url_github)
-    except ValueError as e:
-        # Se a URL for inválida ou o repo não existir, mostra erro na tela
-        raise HTTPException(status_code=400, detail=str(e))
+async def gerar_pptx(url_github: Optional[str] = Form(None), texto_bruto: Optional[str] = Form(None)):
+    # LÓGICA DE DECISÃO: De onde vem a informação?
+    if url_github:
+        try:
+            dados_entrada = extrair_commits_do_github(url_github)
+            subtitulo_slide = f"Análise automatizada do repositório\n{url_github}"
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
-    # Busca a chave de forma segura e instancia a IA (Papel do Membro 2)
+    elif texto_bruto and texto_bruto.strip():
+        dados_entrada = f"Anotações da equipe:\n{texto_bruto}"
+        subtitulo_slide = "Resumo gerado a partir de anotações manuais"
+
+    else:
+        raise HTTPException(status_code=400, detail="Você precisa preencher a URL do GitHub OU colar um texto.")
+
+    # INGESTÃO CONCLUÍDA! Agora passa a bola para o Gemini (Membro 2)
     chave = os.environ.get("GEMINI_API_KEY")
     cliente = genai.Client(api_key=chave)
 
     prompt = f"""
-    Você é um Tech Lead analisando o log de commits extraídos diretamente do repositório GitHub da equipe de desenvolvimento.
-    Traduza as seguintes atualizações de código em 3 a 5 tópicos profissionais, focados em valor de negócio ou melhorias arquiteturais, para serem apresentados em um slide de Sprint Review para stakeholders.
+    Você é um Tech Lead analisando informações de uma equipe de desenvolvimento.
+    Traduza as seguintes informações em 3 a 5 tópicos profissionais e curtos para serem apresentados em um slide de Sprint Review para stakeholders.
     Regras estritas: 
     - Retorne APENAS os tópicos, um por linha.
     - NÃO use asteriscos, números, hífens ou marcadores no início da frase.
-    - Vá direto ao ponto e ignore commits inúteis como "correção de typo" ou "update readme".
+    - Vá direto ao ponto.
 
-    Logs do GitHub:
-    {texto_bruto}
+    Informações:
+    {dados_entrada}
     """
 
     resposta_ia = cliente.models.generate_content(
@@ -129,19 +150,19 @@ async def gerar_pptx(url_github: str = Form(...)):
 
     topicos_processados = resposta_ia.text.strip().split('\n')
 
-    # GERAÇÃO DO ARQUIVO PPTX (Papel do Membro 3)
+    # GERAÇÃO DO ARQUIVO PPTX (Membro 3)
     prs = Presentation()
 
     slide_capa = prs.slides.add_slide(prs.slide_layouts[0])
     slide_capa.shapes.title.text = "Sprint Review"
-    slide_capa.placeholders[1].text = f"Análise automatizada do repositório\n{url_github}"
+    slide_capa.placeholders[1].text = subtitulo_slide
 
     slide_conteudo = prs.slides.add_slide(prs.slide_layouts[1])
-    slide_conteudo.shapes.title.text = "Principais Entregas (Baseadas no Código)"
+    slide_conteudo.shapes.title.text = "Principais Entregas"
     corpo_texto = slide_conteudo.placeholders[1].text_frame
 
     p0 = corpo_texto.paragraphs[0]
-    p0.text = "Destaques da iteração validados no repositório:"
+    p0.text = "Destaques da iteração:"
 
     for topico in topicos_processados:
         texto_limpo = topico.strip()
@@ -150,11 +171,11 @@ async def gerar_pptx(url_github: str = Form(...)):
             p.text = texto_limpo
             p.level = 1
 
-    file_path = "Sprint_Review_GitHub.pptx"
+    file_path = "Sprint_Review_Inteligente.pptx"
     prs.save(file_path)
 
     return FileResponse(
         path=file_path,
         media_type='application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        filename="Sprint_Review_GitHub.pptx"
+        filename="Sprint_Review_Inteligente.pptx"
     )
