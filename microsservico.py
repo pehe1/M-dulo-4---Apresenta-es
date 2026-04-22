@@ -98,6 +98,14 @@ async def get_form():
                     <label>Opção 2: Colar anotações manualmente</label>
                     <textarea name="texto_bruto" rows="5" placeholder="Cole aqui o resumo da reunião, notas da Sprint, etc..."></textarea>
 
+                    <hr>
+
+                    <label for="tom_voz" style="display:block; margin-bottom: 5px; font-weight: bold;">Escolha o tom de voz:</label>
+                    <select name="tom_voz" id="tom_voz" style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 4px;">
+                        <option value="formal">👔 Executivo/Formal (Foco em resultados e seriedade)</option>
+                        <option value="persuasivo">🚀 Persuasivo/Entusiasta (Foco em engajamento e conquistas)</option>
+                    </select>
+
                     <button type="submit" id="btn-gerar">Processar com IA e Gerar PPTX</button>
                 </form>
             </div>
@@ -111,7 +119,7 @@ async def get_form():
 # ==========================================
 # Note que agora usamos Optional[str] e Form(None) para não obrigar o usuário a preencher os dois
 @app.post("/gerar-pptx")
-async def gerar_pptx(url_github: Optional[str] = Form(None), texto_bruto: Optional[str] = Form(None)):
+async def gerar_pptx(url_github: Optional[str] = Form(None), texto_bruto: Optional[str] = Form(None), tom_voz: str = Form("formal")):
     # LÓGICA DE DECISÃO: De onde vem a informação?
     if url_github:
         try:
@@ -131,9 +139,18 @@ async def gerar_pptx(url_github: Optional[str] = Form(None), texto_bruto: Option
     chave = os.environ.get("GEMINI_API_KEY")
     cliente = genai.Client(api_key=chave)
 
+    # Define instruções de tom baseadas na escolha do usuário
+    instrucoes_tom = {
+        "formal": "Mantenha um tom profissional, executivo e focado em resultados e métricas.",
+        "persuasivo": "Mantenha um tom entusiasta, inspirador e focado em engajamento e conquistas da equipe."
+    }
+
     prompt = f"""
     Você é um Tech Lead analisando informações de uma equipe de desenvolvimento.
     Traduza as seguintes informações em 3 a 5 tópicos profissionais e curtos para serem apresentados em um slide de Sprint Review para stakeholders.
+    
+    {instrucoes_tom.get(tom_voz, instrucoes_tom['formal'])}
+    
     Regras estritas: 
     - Retorne APENAS os tópicos, um por linha.
     - NÃO use asteriscos, números, hífens ou marcadores no início da frase.
