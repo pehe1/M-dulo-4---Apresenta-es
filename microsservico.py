@@ -92,11 +92,11 @@ async def get_form():
 
                 <form action="/gerar-pptx" method="post" enctype="multipart/form-data" onsubmit="document.getElementById('btn-gerar').innerText = 'Processando com IA... ⏳'; document.getElementById('btn-gerar').style.background = '#888';">
 
-                    <label>Nova US: Análise de Diagrama Arquitetura</label>
+                    <label>Análise de Diagrama Arquitetura</label>
                     <input type="file" name="imagem_diagrama" accept="image/*">
                     <hr>
 
-                    <label>Nova US: Formatar Solução de Backend</label>
+                    <label>Formatar Solução de Backend</label>
                     <textarea name="codigo_backend" rows="4" placeholder="Cole o código do backend aqui..."></textarea>
                     <hr>
 
